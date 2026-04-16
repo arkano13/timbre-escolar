@@ -1,5 +1,5 @@
 import express from "express";
-import { getTimbreNow } from "../controllers/timbreController.js";
+import { getTimbreNow, triggerManualRing } from "../controllers/timbreController.js";
 
 const router = express.Router();
 
