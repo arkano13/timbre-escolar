@@ -2,9 +2,10 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 
-import timbreRouter from "./routes/timbreRoutes.js";  // sin src/
-import alarmRouter from "./routes/alarmRoutes.js";    // sin src/
-import systemRouter from "./routes/systemRoutes.js";    // sin src/
+
+import timbreRouter from "./routes/timbreRoutes.js"; // sin src/
+import alarmRouter from "./routes/alarmRoutes.js"; // sin src/
+import systemRouter from "./routes/systemRoutes.js"; // sin src/
 
 const app = express();
 
