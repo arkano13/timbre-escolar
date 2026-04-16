@@ -8,6 +8,7 @@ function pad(n) {
 }
 
 function getDayIndex(date) {
+  // lunes=0 ... domingo=6
   return date.getDay() === 0 ? 6 : date.getDay() - 1;
 }
 
@@ -24,11 +25,27 @@ const getTimbreNow = async (req, res) => {
     const settings = await prisma.systemSettings.findFirst();
 
     if (!settings || !settings.systemOn) {
+      console.log("Sistema apagado o sin configuración");
       return res.json({ ring: false });
     }
 
-    // 🔥 primero revisar si hay timbre manual activo
+    // Hora de Honduras
+    const now = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/Tegucigalpa" })
+    );
+
+    const dayIndex = getDayIndex(now);
+    const timeKey = getTimeKey(now);
+    const dateKey = getDateKey(now);
+
+    console.log("Fecha Honduras:", now.toString());
+    console.log("dayIndex:", dayIndex);
+    console.log("timeKey:", timeKey);
+    console.log("dateKey:", dateKey);
+
+    // Timbre manual activo
     if (Date.now() < manualRingUntil) {
+      console.log("Timbre manual activo");
       return res.json({
         ring: true,
         duration: settings.duration || 7000,
@@ -36,39 +53,52 @@ const getTimbreNow = async (req, res) => {
       });
     }
 
-    const now = new Date();
-    const dayIndex = getDayIndex(now);
-    const timeKey = getTimeKey(now);
-    const dateKey = getDateKey(now);
-
     const alarms = await prisma.alarm.findMany({
       where: { active: true },
     });
 
-   const hit = alarms.find((a) => {
-  if (!a.days.includes(dayIndex)) return false;
+    console.log("Alarmas activas:", alarms);
 
-  const [h, m] = a.time.split(":").map(Number);
+    const hit = alarms.find((a) => {
+      if (!a.days.includes(dayIndex)) return false;
 
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const alarmMinutes = h * 60 + m;
+      const [h, m] = a.time.split(":").map(Number);
 
-  return Math.abs(nowMinutes - alarmMinutes) <= 1; // ventana de 1 minuto
-});
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const alarmMinutes = h * 60 + m;
+
+      const match = Math.abs(nowMinutes - alarmMinutes) <= 1;
+
+      console.log("Comparando alarma:", {
+        alarmId: a.id,
+        alarmName: a.name,
+        alarmTime: a.time,
+        alarmDays: a.days,
+        dayIndex,
+        nowMinutes,
+        alarmMinutes,
+        match,
+      });
+
+      return match;
+    });
+
     if (!hit) {
+      console.log("No hubo alarma coincidente");
       return res.json({ ring: false });
     }
 
-    // evitar repetición
+    // Evitar repetición
     const existing = await prisma.triggerLog.findFirst({
       where: {
         alarmId: hit.id,
         date: dateKey,
-        time: timeKey,
+        time: hit.time,
       },
     });
 
     if (existing) {
+      console.log("Ya existe triggerLog para esta alarma hoy");
       return res.json({ ring: false });
     }
 
@@ -76,17 +106,19 @@ const getTimbreNow = async (req, res) => {
       data: {
         alarmId: hit.id,
         date: dateKey,
-        time: timeKey,
+        time: hit.time,
       },
     });
 
+    console.log("ALARMA DISPARADA:", hit.name);
+
     return res.json({
       ring: true,
-      duration: settings.duration,
+      duration: settings.duration || 7000,
       name: hit.name,
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error getTimbreNow:", err);
     return res.status(500).json({ error: "Error servidor" });
   }
 };
@@ -97,6 +129,8 @@ const triggerManualRing = async (req, res) => {
     const duration = settings?.duration || 7000;
 
     manualRingUntil = Date.now() + duration;
+
+    console.log("Timbre manual activado por", duration, "ms");
 
     return res.status(200).json({
       ring: true,
