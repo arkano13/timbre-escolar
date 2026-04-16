@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Alarm {
+  id     String  @id @default(uuid())
+  time   String
+  name   String
+  days   Int[]
+  active Boolean @default(true)
+}
+
+model SystemSettings {
+  id       String  @id @default(uuid())
+  systemOn Boolean @default(true)
+  duration Int     @default(7000)
+}
+
+model TriggerLog {
+  id      String @id @default(uuid())
+  alarmId String
+  time    String
+  date    String
+}
