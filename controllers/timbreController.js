@@ -1,5 +1,7 @@
 // timbreController.js
-import prisma from '../config/prisma.js'  // sin llaves {}
+import prisma from "../config/prisma.js";
+
+let manualRingUntil = 0;
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -10,7 +12,7 @@ function getDayIndex(date) {
 }
 
 function getDateKey(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function getTimeKey(date) {
@@ -25,6 +27,15 @@ const getTimbreNow = async (req, res) => {
       return res.json({ ring: false });
     }
 
+    // 🔥 primero revisar si hay timbre manual activo
+    if (Date.now() < manualRingUntil) {
+      return res.json({
+        ring: true,
+        duration: settings.duration || 7000,
+        name: "Manual",
+      });
+    }
+
     const now = new Date();
     const dayIndex = getDayIndex(now);
     const timeKey = getTimeKey(now);
@@ -35,9 +46,7 @@ const getTimbreNow = async (req, res) => {
     });
 
     const hit = alarms.find(
-      (a) =>
-        a.time === timeKey &&
-        a.days.includes(dayIndex)
+      (a) => a.time === timeKey && a.days.includes(dayIndex)
     );
 
     if (!hit) {
@@ -70,11 +79,31 @@ const getTimbreNow = async (req, res) => {
       duration: settings.duration,
       name: hit.name,
     });
-
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Error servidor" });
+    return res.status(500).json({ error: "Error servidor" });
   }
 };
 
-export { getTimbreNow };
+const triggerManualRing = async (req, res) => {
+  try {
+    const settings = await prisma.systemSettings.findFirst();
+    const duration = settings?.duration || 7000;
+
+    manualRingUntil = Date.now() + duration;
+
+    return res.status(200).json({
+      ring: true,
+      manual: true,
+      duration,
+    });
+  } catch (error) {
+    console.error("Error activando timbre manual:", error);
+    return res.status(500).json({
+      ring: false,
+      message: "Error activando timbre manual",
+    });
+  }
+};
+
+export { getTimbreNow, triggerManualRing };
