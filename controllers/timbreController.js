@@ -20,6 +20,20 @@ function getTimeKey(date) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function normalizeDays(days) {
+  if (Array.isArray(days)) return days.map(Number);
+
+  if (typeof days === "string") {
+    return days
+      .replace(/[{}]/g, "")
+      .split(",")
+      .map((d) => Number(d.trim()))
+      .filter((n) => !Number.isNaN(n));
+  }
+
+  return [];
+}
+
 const getTimbreNow = async (req, res) => {
   try {
     const settings = await prisma.systemSettings.findFirst();
@@ -60,27 +74,23 @@ const getTimbreNow = async (req, res) => {
     console.log("Alarmas activas:", alarms);
 
     const hit = alarms.find((a) => {
-      if (!a.days.includes(dayIndex)) return false;
-
-      const [h, m] = a.time.split(":").map(Number);
-
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      const alarmMinutes = h * 60 + m;
-
-      const match = Math.abs(nowMinutes - alarmMinutes) <= 1;
+      const daysArray = normalizeDays(a.days);
+      const sameDay = daysArray.includes(dayIndex);
+      const sameTime = a.time === timeKey;
 
       console.log("Comparando alarma:", {
         alarmId: a.id,
         alarmName: a.name,
         alarmTime: a.time,
         alarmDays: a.days,
+        normalizedDays: daysArray,
         dayIndex,
-        nowMinutes,
-        alarmMinutes,
-        match,
+        timeKey,
+        sameDay,
+        sameTime,
       });
 
-      return match;
+      return sameDay && sameTime;
     });
 
     if (!hit) {
