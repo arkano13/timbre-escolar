@@ -45,10 +45,16 @@ const getTimbreNow = async (req, res) => {
       where: { active: true },
     });
 
-    const hit = alarms.find(
-      (a) => a.time === timeKey && a.days.includes(dayIndex)
-    );
+   const hit = alarms.find((a) => {
+  if (!a.days.includes(dayIndex)) return false;
 
+  const [h, m] = a.time.split(":").map(Number);
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const alarmMinutes = h * 60 + m;
+
+  return Math.abs(nowMinutes - alarmMinutes) <= 1; // ventana de 1 minuto
+});
     if (!hit) {
       return res.json({ ring: false });
     }
